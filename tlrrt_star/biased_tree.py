@@ -46,12 +46,14 @@ class BiasedTree(object):
         self.biased_tree.add_node(self.init, cost=0, label=init_label)
 
         # parameters regarding TL-RRT* algorithm
-        self.goals = set()
-        self.step_size = para['step_size']
+        self.goals = set() #self.goals 用于存储目标节点。
+        self.step_size = para['step_size'] #定义了路径规划中的步长
         self.segment = segment
         self.lite = para['is_lite']
         # size of the ball used in function near
-        uni_v = np.power(np.pi, self.robot*self.dim/2) / math.gamma(self.robot*self.dim/2+1)
+        uni_v = np.power(np.pi, self.robot*self.dim/2) / math.gamma(self.robot*self.dim/2+1) #计算单位球体的体积（uni_v）
+        #gamma 的定义涉及 uni_v 的倒数的根，用来调整邻域半径。
+        #gamma 会决定在近邻搜索时的采样密度，保证了采样的区域在不同维度和机器人数量下均匀分布。
         self.gamma = np.ceil(4 * np.power(1/uni_v, 1./(self.dim*self.robot)))   # unit workspace
         # parameters regarding biased sampling
         # group the nodes in the tree by the buchi state
@@ -76,12 +78,15 @@ class BiasedTree(object):
         # threshold for collision avoidance
         self.threshold = para['threshold']
         # polygon obstacle for visibility-based method
+        #多边形障碍物处理
         polys = []
+        #收集了障碍物的顶点坐标，构成可见性图的障碍物集合
         for poly in self.obstacles.values():
             polys.append([vg.Point(x[0], x[1]) for x in list(poly.exterior.coords)[:-1]])
-        self.g = vg.VisGraph()
+        self.g = vg.VisGraph() #构建了可见性图，用于检测路径中障碍物的影响
         self.g.build(polys, status=False)
 
+#限制机器人的位置，使其保持在工作空间的范围内，防止超出边界
     def trunc(self, i, value):
         """
         limit the robot in the range of workspace
@@ -96,13 +101,15 @@ class BiasedTree(object):
         else:
             return value
 
+#带偏置的采样，生成一个偏向性的采样点
     def biased_sample(self):
+    #定义了一个基于 Büchi 自动机的引导采样函数。返回值是采样点 x_rand 和在转换上最接近目标的节点 q_p_closest        
         """
         buchi guided biased sample
         :return: sampled point x_rand, closest node q_p_closest in terms of transitions
         """
         # sample nodes as q_p_closest from two partitioned sets
-        p_rand = np.random.uniform(0, 1, 1)
+        p_rand = np.random.uniform(0, 1, 1)  #随机生成一个0到1之间的数
         q_p_closest = None
         if (p_rand <= self.p_closest and len(self.q_min2final) > 0) or not self.not_q_min2final:
             q_p_closest = sample_uniform_geometry(self.q_min2final)

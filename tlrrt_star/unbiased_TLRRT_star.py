@@ -25,6 +25,7 @@ task = Task()
 # #     store the data as binary data stream
 #     pickle.dump(task, filehandle)
 # exit()
+#-----获得布奇自动机------
 buchi = Buchi(task)
 buchi.construct_buchi_graph()
 buchi.get_minimal_length()
@@ -35,7 +36,7 @@ NBA_time = (datetime.datetime.now() - start).total_seconds()
 # buchi.buchi_graph.graph['accept'] = ['accept_all']
 
 # workspace
-workspace = Workspace()
+workspace = Workspace() 
 
 # parameters
 n_max = 100000000
@@ -63,12 +64,12 @@ for b_init in buchi_graph.graph['init']:
     # ----------------------------------------------------------------#
 
     start = datetime.datetime.now()
-    init_state = (task.init, b_init)
+    init_state = (task.init, b_init)  #初始状态
     init_label = task.init_label
-    tree_pre = unbiasedTree(workspace, buchi, init_state, init_label, 'prefix', para)
+    tree_pre = unbiasedTree(workspace, buchi, init_state, init_label, 'prefix', para)  #初始化树
     print('------------------------------ prefix path --------------------------------')
     # construct the tree for the prefix part
-    cost_path_pre = construction_unbiased_tree(tree_pre, n_max)
+    cost_path_pre = construction_unbiased_tree(tree_pre, n_max)  #构建树
     if len(tree_pre.goals):
         pre_time = (datetime.datetime.now() - start).total_seconds()
         print('Time for the prefix path: {0:.4f} s'.format(pre_time))

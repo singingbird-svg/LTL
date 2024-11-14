@@ -56,12 +56,12 @@ task = Task(int(args.case), int(args.num), args.random)
 # #     store the data as binary data stream
 #     pickle.dump(task, filehandle)
 # exit()
-buchi = Buchi(task)
-buchi.construct_buchi_graph()
-buchi.get_minimal_length()
-buchi.get_feasible_accepting_state()
+buchi = Buchi(task)  #获得布奇自动机
+buchi.construct_buchi_graph()  #建图
+buchi.get_minimal_length()  #获得长度
+buchi.get_feasible_accepting_state() #获得可接受状态
 buchi_graph = buchi.buchi_graph
-NBA_time = (datetime.datetime.now() - start).total_seconds()
+NBA_time = (datetime.datetime.now() - start).total_seconds() #建立自动机的时间
 # print('{0:.4f}'.format(NBA_time))
 # buchi.buchi_graph.graph['accept'] = ['accept_all']
 
@@ -85,7 +85,7 @@ para['weight'] = 0.2
 
 cost_path = OrderedDict()
 
-for b_init in buchi_graph.graph['init']:
+for b_init in buchi_graph.graph['init']: #对于图中每个初始状态
     # initialization
     opt_cost = (np.inf, 0)
     opt_path_pre = []
@@ -96,8 +96,8 @@ for b_init in buchi_graph.graph['init']:
     # ----------------------------------------------------------------#
 
     start = datetime.datetime.now()
-    init_state = (task.init, b_init)
-    init_label = task.init_label
+    init_state = (task.init, b_init) #机器人初始位置，自动机初始状态
+    init_label = task.init_label    #初始标签
     tree_pre = BiasedTree(workspace, buchi, init_state, init_label, 'prefix', para)
     print('------------------------------ prefix path --------------------------------')
     # construct the tree for the prefix part

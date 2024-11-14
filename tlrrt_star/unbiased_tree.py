@@ -20,7 +20,7 @@ class unbiasedTree(object):
     """
     unbiased tree for prefix and suffix parts
     """
-
+#-----------------初始化-------------------
     def __init__(self, workspace, buchi, init_state, init_label, segment, para):
         """
         initialization of the tree
@@ -32,7 +32,8 @@ class unbiasedTree(object):
         :param para: parameters regarding unbiased-sampling method
         """
         # parameters regarding workspace
-        self.workspace = workspace.workspace
+        #获得工作空间和布奇自动机相关信息
+        self.workspace = workspace.workspace  
         self.dim = len(self.workspace)
         self.regions = workspace.regions
         self.obstacles = workspace.obs
@@ -49,7 +50,7 @@ class unbiasedTree(object):
         # parameters regarding TL-RRT* algorithm
         self.goals = set()
         self.step_size = para['step_size']
-        self.segment = segment
+        self.segment = segment #prefix or suffix part
         self.lite = para['is_lite']
         # size of the ball used in function near
         uni_v = np.power(np.pi, self.robot * self.dim / 2) / math.gamma(self.robot * self.dim / 2 + 1)
@@ -66,18 +67,20 @@ class unbiasedTree(object):
         # threshold for collision avoidance
         self.threshold = para['threshold']
 
-
+#--------采样------------
     def sample(self):
         """
         sample point from the workspace
         :return: sampled point, tuple
         """
+        #从工作空间中均匀采样x_rand
         x_rand = []
         for i in range(self.dim):
             x_rand.append(uniform(0, self.workspace[i]))
 
         return tuple(x_rand)
 
+#--------避障----------------
     def collision_avoidance(self, x, robot_index):
         """
         check whether robots with smaller index than robot_index collide with the robot of index robot_index
@@ -86,11 +89,14 @@ class unbiasedTree(object):
         :return: true if collision free
         """
         for i in range(len(x)):
+            #碰撞检测是基于机器人之间的距离是否小于某个预设的阈值 threshold
             if i != robot_index and np.fabs(x[i][0] - x[robot_index][0]) <= self.threshold and \
                             np.fabs(x[i][1] - x[robot_index][1]) <= self.threshold:
                 return False
         return True
 
+#找到树中距离x_rand最近的x
+#返回的是状态节点
     def nearest(self, x_rand):
         """
         find the nearest class of vertices in the tree
@@ -100,8 +106,8 @@ class unbiasedTree(object):
         min_dis = math.inf
         q_p_nearest = []
         for node in self.unbiased_tree.nodes:
-            x = self.mulp2single(node[0])
-            dis = np.linalg.norm(np.subtract(x_rand, x))
+            x = self.mulp2single(node[0])  #node[0]是位置
+            dis = np.linalg.norm(np.subtract(x_rand, x)) #获得x和x_rand的距离
             if dis < min_dis:
                 q_p_nearest = [node]
                 min_dis = dis
@@ -109,6 +115,7 @@ class unbiasedTree(object):
                 q_p_nearest.append(node)
         return q_p_nearest
 
+#steer 函数通常用于类似于快速扩展随机树（RRT）或其他路径规划算法中，其目的是生成一个新的点，该点从最近的点 (x_nearest) 向随机采样点 (x_rand) 引导
     def steer(self, x_rand, x_nearest):
         """
         steer
@@ -116,12 +123,18 @@ class unbiasedTree(object):
         :param: x_nearest nearest point in the tree form: single point ()
         :return: new point single point ()
         """
+        '''
+        如果 x_rand 离 x_nearest 的距离小于或等于 step_size, 则直接返回 x_rand;
+        否则，生成一个新的点，该点距离 x_nearest 的距离恰好为 step_size, 并且朝着 x_rand 的方向前进;
+        这样可以确保在路径规划过程中，树或路径是以固定的步长逐步扩展的。
+        '''
         if np.linalg.norm(np.subtract(x_rand, x_nearest)) <= self.step_size:
             return x_rand
         else:
             return tuple(map(tuple, np.asarray(x_nearest) + self.step_size * (np.subtract(x_rand, x_nearest)) /
                              np.linalg.norm(np.subtract(x_rand, x_nearest))))
 
+#扩展树，给树增加新的状态
     def extend(self, q_new, near_nodes, label, obs_check):
         """
         add the new sate q_new to the tree
@@ -134,20 +147,27 @@ class unbiasedTree(object):
         cost = np.inf
         q_min = ()
         # loop over all nodes in near_nodes
+        #循环near_nodes的节点
+        #是在进行扩展操作时，检查新的节点q_new是否应该与现有节点node建立连接。代码的目标是根据一些条件更新成本（cost），并选择最优的节点（q_min）来扩展路径
         for node in near_nodes:
+        #确保新节点q_new与当前遍历的node节点不同（避免与自身连接）
+        #检查从q_new到node之间是否存在障碍物，obs_check是一个字典，存储了两节点之间是否无障碍的检查结果。如果返回True，表示这两个节点之间没有障碍物，可以连接。
+        #判断是否可以从node的状态转移到q_new的状态。
             if q_new != node and obs_check[(q_new[0], node[0])] and \
                     self.check_transition_b(node[1], self.unbiased_tree.nodes[node]['label'], q_new[1]):
                 c = self.unbiased_tree.nodes[node]['cost'] \
-                    + np.linalg.norm(np.subtract(self.mulp2single(q_new[0]), self.mulp2single(node[0])))
+                    + np.linalg.norm(np.subtract(self.mulp2single(q_new[0]), self.mulp2single(node[0]))) #cost加上q_new和node的距离
                 if c < cost:
                     added = True
-                    q_min = node
+                    q_min = node #更新q_min为当前节点node
                     cost = c
         if added:
+            #，将q_new节点加入到无偏树中，并将q_min到q_new之间的边添加到树中
             self.unbiased_tree.add_node(q_new, cost=cost, label=label)
             self.unbiased_tree.add_edge(q_min, q_new)
+            #当路径搜索还未找到最终目标时，继续扩展路径
             if self.segment == 'prefix' and q_new[1] in self.accept:
-                q_n = list(list(self.unbiased_tree.pred[q_new].keys())[0])
+                q_n = list(list(self.unbiased_tree.pred[q_new].keys())[0]) #获取q_new的前驱节点
                 cost = self.unbiased_tree.nodes[tuple(q_n)]['cost']
                 label = self.unbiased_tree.nodes[tuple(q_n)]['label']
                 q_n[1] = q_new[1]
@@ -161,10 +181,11 @@ class unbiasedTree(object):
             #         and self.check_transition_b(q_new[1], label, self.init[1]):
             #     self.goals.add(q_new)
 
-            elif self.segment == 'suffix' and self.init[1] == q_new[1]:
+            elif self.segment == 'suffix' and self.init[1] == q_new[1]: #当新节点的布尔状态与初始状态一致时，将其视为目标节点（后缀的终点是起点）
                 self.goals.add(q_new)
         return added
 
+#更新树的边
     def rewire(self, q_new, near_nodes, obs_check):
         """
         :param: q_new: new state
@@ -172,13 +193,17 @@ class unbiasedTree(object):
         :param: obs_check: check whether obstacle-free
         :return: the tree after rewiring
         """
+        #遍历near nodes
         for node in near_nodes:
+            #q_new和node之间没有障碍物且能够从node到q_new进行转移
             if obs_check[(q_new[0], node[0])] \
                     and self.check_transition_b(q_new[1], self.unbiased_tree.nodes[q_new]['label'], node[1]):
+            #更新cost
                 c = self.unbiased_tree.nodes[q_new]['cost'] \
                     + np.linalg.norm(np.subtract(self.mulp2single(q_new[0]), self.mulp2single(node[0])))
                 delta_c = self.unbiased_tree.nodes[node]['cost'] - c
                 # update the cost of node in the subtree rooted at the rewired node
+            #如果cost更小，则更新edge
                 if delta_c > 0:
                     self.unbiased_tree.remove_edge(list(self.unbiased_tree.pred[node].keys())[0], node)
                     self.unbiased_tree.add_edge(q_new, node)
@@ -187,6 +212,7 @@ class unbiasedTree(object):
                         if d == 'forward':
                             self.unbiased_tree.nodes[v]['cost'] = self.unbiased_tree.nodes[v]['cost'] - delta_c
 
+#找到在邻域内的点
     def near(self, x_new):
         """
         find the states in the near ball
@@ -202,6 +228,7 @@ class unbiasedTree(object):
                 near_nodes.append(node)
         return near_nodes
 
+#判断x_new和x_near中间有没有障碍物
     def obstacle_check(self, near_node, x_new, label):
         """
         check whether line from x_near to x_new is obstacle-free
@@ -245,6 +272,7 @@ class unbiasedTree(object):
 
         return obs_check
 
+#返回x所在位置的状况（Obs、region）
     def get_label(self, x):
         """
         generating the label of position component
@@ -264,6 +292,7 @@ class unbiasedTree(object):
         # x lies within unlabeled region
         return ''
 
+#判断q_b是否能够通过x_label关系变成q_b_new
     def check_transition_b(self, q_b, x_label, q_b_new):
         """
         check whether q_b -- x_label ---> q_b_new
@@ -272,17 +301,21 @@ class unbiasedTree(object):
         :param q_b_new: buchi state
         :return True if satisfied
         """
+        #选择q_b状态节点的后继
         b_state_succ = self.buchi.buchi_graph.succ[q_b]
         # q_b_new is not the successor of b_state
+        #如果q_b_new 不在后继，则返回false
         if q_b_new not in b_state_succ:
             return False
         # check whether label of x enables the transition
+        #转移关系的真命题
         truth = self.buchi.buchi_graph.edges[(q_b, q_b_new)]['truth']
         if self.check_transition_b_helper(x_label, truth):
             return True
 
         return False
 
+#判断x_label能否满足truth中的状态要求
     def check_transition_b_helper(self, x_label, truth):
         """
         check whether transition enabled with current generated label
@@ -290,10 +323,12 @@ class unbiasedTree(object):
         :param truth: symbol enabling the transition
         :return: true or false
         """
+        #如果无要求，直接为真
         if truth == '1':
             return True
         # all true propositions should be satisdied
         true_label = [true_label for true_label in truth.keys() if truth[true_label]]
+    
         for label in true_label:
             if label not in x_label: return False
 
@@ -329,12 +364,20 @@ class unbiasedTree(object):
 
         return paths
 
+#将一个包含多个机器人位置的嵌套元组（tuple of tuple）转化为一个扁平化的元组
     def mulp2single(self, point):
         """
         convert a point, which in the form of a tuple of tuple ((),(),(),...) to point in the form of a flat tuple
         :param point: point((position of robot 1), (position of robot2), (), ...)
         :return: point (position of robot1, position of robot2, ...)
         """
+        '''
+        假设输入的 point 是 ((1, 2), (3, 4), (5, 6)):
+        列表推导式首先会遍历 point 中的每个元组：(1, 2),(3, 4),(5, 6)
+        对每个子元组，内层循环会遍历其内容，提取出每个坐标值。
+        最终得到一个扁平化的列表：[1, 2, 3, 4, 5, 6]。
+        然后使用 tuple() 将这个列表转换为一个元组：(1, 2, 3, 4, 5, 6)
+        '''
         return tuple([p for r in point for p in r])
 
     def single2mulp(self, point):
